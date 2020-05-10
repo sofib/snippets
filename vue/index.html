@@ -1,0 +1,176 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <!-- Required meta tags -->
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+
+    <!-- Bootstrap CSS -->
+    <link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/css/bootstrap.min.css" integrity="sha384-Vkoo8x4CGsO3+Hhxv8T/Q5PaXtkKtu6ug5TOeNV6gBiFeWPGFN9MuhOf23Q9Ifjh" crossorigin="anonymous">
+    <!-- development version, includes helpful console warnings -->
+    <script src="https://cdn.jsdelivr.net/npm/vue/dist/vue.js"></script>
+
+    <title>APP</title>
+  </head>
+  <body>
+
+<div id="app">
+  <h4 class="head"> Application</h4>
+  <div class="container">
+    <table class="table table-dark" v-show="entities.length">
+      <thead>
+        <tr>
+          <th scope="col" v-for="column in columns">
+            {{column}}
+          </th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr v-for="(entity,index) in entities">
+          <th scope="row">{{index}}</th>
+          <td>
+            {{entity.name}}
+          </td>
+          <td style="width: 18%;">
+            <div class="btn-group">
+            <button type="button" class="btn btn-sm btn-outline-primary" data-toggle="modal" data-target="#editModal" @click="edit(index)">
+              Edit
+            </button>
+            <button type="button" class="btn btn-sm btn-outline-danger" @click="remove(index)">
+              Delete
+            </button>
+            </div>
+          </td>
+        </tr>
+        <tr>
+          <td colspan="2">
+            <div class="input-field">
+              <input placeholder="Enter name" ref="name" v-model="input.name" id="name" type="text">
+              <label for="name">Name</label>
+            </div>
+          </td>
+          <td><button type="button" class="btn btn-primary" @click="add">Add</button></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="modal" id="editModal" tabindex="-1" role="dialog">
+    <div class="modal-dialog" role="document">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h5 class="modal-title">Edit</h5>
+          <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+            <span aria-hidden="true">&times;</span>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div class="row">
+            <form class="col s12">
+              <div class="row">
+                <div class="input-field col s6">
+                  <input placeholder="Enter name" id="name" type="text" v-model="editInput.name">
+                  <label for="name">Name</label>
+                </div>
+              </div>
+            </form>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-primary" data-dismiss="modal" @click="update">Save changes</button>
+          <button type="button" class="btn btn-secondary" data-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+    <script>
+      //function to sort table data alphabetically
+      var ordonner = function(a, b) {
+        return (a.name > b.name);
+      };
+      var mapApiUi = function (source) {
+        return {
+          name: source.name,
+          id: source.id
+        };
+      };
+
+      var app = new Vue({
+        el: '#app',
+        data: {
+          columns: ['Index', 'Name', 'Actions '],
+          entities: [{ name: "Ethiel" }, { name: "Patrick" }],
+          input: { name: "Johnson" },
+          inFlight: {},
+          editInput: { name: "" },
+          editIndex: null
+        },
+        methods: {
+          load: function () {
+            $.get('http://localhost/entity', (data, status, jqXHR) => {
+              this.entities = [];
+              data.forEach(element => {
+                this.entities.push(mapApiUi(element));
+              });
+            });
+          },
+        //function to add data to table
+        add: function() {
+          $.post('http://localhost/entity', { ...this.input },  (data, status, jqXHR) => {
+            console.log({data, status, jqXHR});
+            // this.entities.push(mapApiUi(data));
+            this.entities.push(mapApiUi(this.input));
+
+            for (var key in this.input) {
+              this.input[key] = '';
+            }
+            this.entities.sort(ordonner);
+            this.$refs.name.focus();
+          });
+        },
+        //function to handle data edition
+        edit: function(index) {
+          this.editInput = { ...this.entities[index] };
+          this.editIndex = index;
+          //console.log(this.editInput);
+        },
+        //function to update data
+        update: function(){
+          const original = this.entities[this.editIndex];
+          const changes = { ...this.editInput };
+          $.post(`http://localhost/entity/${original.id}`,changes, (data, status, jqXHR) => {
+            if (jqXHR.status !== 204) {
+              console.error('Invalid?', data, status, jqXHR);
+              return;
+            }
+            this.entities[this.editIndex] = { ...this.entities[this.editIndex], ...changes };
+            for (var key in this.editInput) {
+              this.editInput[key] = '';
+            }
+            this.editIndex = null;
+            this.entities.sort(ordonner);
+          });
+        },
+        //function to delete data 
+        remove: function(index) {
+          const original = this.entities[index];
+          $.ajax({
+            url: `http://localhost/entity/${original.id}`,
+            method: 'DELETE'
+          });
+          this.entities.splice(index, 1);
+          this.entities.sort(ordonner);
+        }
+      }
+      });
+    </script>
+    <!-- Optional JavaScript -->
+    <!-- jQuery first, then Popper.js, then Bootstrap JS -->
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.0/dist/umd/popper.min.js" integrity="sha384-Q6E9RHvbIyZFJoft+2mJbHaEWldlvI9IOYy5n3zV9zzTtmI3UksdQRVvoxMfooAo" crossorigin="anonymous"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.4.1/js/bootstrap.min.js" integrity="sha384-wfSDF2E50Y2D1uUdj0O3uMBJnjuUD4Ih7YwaYd1iqfktj0Uod8GCExl3Og8ifwB6" crossorigin="anonymous"></script>
+  </body>
+</html>
